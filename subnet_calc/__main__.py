@@ -1,54 +1,48 @@
-
+# subnet_calc/__main__.py
 import argparse
-import sys
-import ipaddress
+from . import calc_network_info  # import from __init__
 
-def calc_network_info(cidr: str):
-    net = ipaddress.ip_network(cidr, strict=False)
-    data = {
-        "version": net.version,
-        "network": str(net.network_address),
-        "prefixlen": net.prefixlen,
-        "netmask": str(net.netmask) if hasattr(net, "netmask") else None,
-        "hostmask": str(net.hostmask) if hasattr(net, "hostmask") else None,
-        "num_addresses": net.num_addresses,
-    }
-    if net.version == 4:
-        data.update({
-            "broadcast": str(net.broadcast_address),
-            "first_usable": str(list(net.hosts())[0]) if net.num_addresses >= 2 else None,
-            "last_usable": str(list(net.hosts())[-1]) if net.num_addresses >= 2 else None,
-        })
-    return data
-
-def main(argv=None):
-    p = argparse.ArgumentParser(description="Subnet calculator")
+def main():
+    p = argparse.ArgumentParser(description="IPv4/IPv6 subnet calculator")
     g = p.add_mutually_exclusive_group(required=True)
-    g.add_argument("--cidr", help="Single CIDR (e.g., 10.0.0.0/24)")
-    g.add_argument("--file", help="File with one CIDR per line")
-    p.add_argument("--summary", action="store_true", help="Print only summary lines")
-    args = p.parse_args(argv)
+    g.add_argument("--cidr", help="CIDR like 192.168.1.130/26 or 2001:db8::/64")
+    g.add_argument("--file", help="Path to a file with one CIDR per line")
+    p.add_argument("--summary", action="store_true", help="Print one-line summary per CIDR")
+    args = p.parse_args()
 
-    cidrs = []
+    def print_one(c):
+        info = calc_network_info(c.strip())
+        if args.summary:
+            # Compact line; adjust columns if you like
+            fields = [
+                info["cidr"],
+                f"mask={info.get('mask_ddn','-')}",
+                f"net={info['network']}",
+                f"bcast={info['broadcast'] if info['broadcast'] is not None else '-'}",
+                f"usable={info['usable']}",
+            ]
+            print(" | ".join(map(str, fields)))
+        else:
+            print(f"Input:     {info['cidr']}")
+            if "mask_ddn" in info:
+                print(f"Mask:      {info['mask_ddn']} (/{info['prefix']})")
+                print(f"Wildcard:  {info['wildcard']}")
+            else:
+                print(f"Prefix:    /{info['prefix']}")
+            print(f"Network:   {info['network']}")
+            print(f"Broadcast: {info['broadcast']}")
+            print(f"Usable:    {info['first']} - {info['last']} ({info['usable']})")
+            print()
+
     if args.cidr:
-        cidrs = [args.cidr.strip()]
+        print_one(args.cidr)
     else:
         with open(args.file) as fh:
-            cidrs = [line.strip() for line in fh if line.strip()]
-
-    for c in cidrs:
-        try:
-            info = calc_network_info(c)
-        except Exception as e:
-            print(f"[ERROR] {c}: {e}", file=sys.stderr)
-            continue
-        if args.summary:
-            print(f"{c}: /{info['prefixlen']} • addrs={info['num_addresses']} • net={info['network']}")
-        else:
-            print(f"CIDR: {c}")
-            for k, v in info.items():
-                print(f"  {k}: {v}")
-            print()
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                print_one(line)
 
 if __name__ == "__main__":
     main()

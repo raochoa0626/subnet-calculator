@@ -1,0 +1,2 @@
+[console_scripts]
+subnetcalc = subnet_calc.__main__:main

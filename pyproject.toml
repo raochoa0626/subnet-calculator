@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "subnet-calc"
+version = "0.1.0"
+description = "IPv4/IPv6 subnet calculator CLI"
+requires-python = ">=3.10"
+
+[project.scripts]
+subnetcalc = "subnet_calc.__main__:main"
+
+[tool.setuptools]
+packages = ["subnet_calc"]
